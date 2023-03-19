@@ -30,7 +30,7 @@ Features:
 
 
 """
-app = FastAPI(title="LMS API mvp", version="0.0.1", description=description)
+app = FastAPI(title="Avabodha API", version="0.0.1", description=description)
 
 
 @app.get("/")
