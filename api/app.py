@@ -3,9 +3,10 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from api.config import CONFIG
-from api.models.user_id import UserInDB
+from api.models.user import UserInDB
 from api.models.classroom import Classroom
-from api.models.user_profile import UserProfile
+from api.models.post import Post
+from api.models.question import Question
 
 description = """
 # Avabodha LMS
@@ -42,5 +43,5 @@ async def index() -> dict:
 async def start_app():
     client = AsyncIOMotorClient(CONFIG.mongo_uri)
     await init_beanie(
-        client.db_name, document_models=[UserInDB, Classroom, UserProfile]
+        client.db_name, document_models=[UserInDB, Classroom, Post, Question]
     )

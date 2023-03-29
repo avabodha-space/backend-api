@@ -1,70 +1,165 @@
-from fastapi import APIRouter, HTTPException, Depends, Response, status
+import string
+import random
 
-from api.models.classroom import Classroom, ClassroomIn
-from api.models.user_id import UserInDB
-from api.models.user_profile import UserProfile
-from api.utils.current_user import gcau, gcaup
+from fastapi import APIRouter, HTTPException, Depends, Response, status
 from typing import List
+from api.models.classroom import (
+    Classroom,
+    ClassroomIn,
+    ClassroomShort,
+    ClassRoles,
+    ClassRolesPlus,
+    ClassroomPeople,
+)
+from api.models.user import UserInDB
+from api.utils.current_user import GcauDep
+from api.utils.exceptions import (
+    invalid_join_code_exc,
+    no_access_to_classroom_exc,
+    cant_join_classroom_exc,
+)
 from datetime import datetime
 from beanie import PydanticObjectId
-from enum import Enum
+from api.utils.current_classroom import (
+    RC_ip_Dep,
+    RC_o_Dep,
+    RC_sp_Dep,
+    RCDep,
+)
+
 
 router = APIRouter(prefix="/classroom", tags=["Classroom"])
 
 
-class ClassRoles(str, Enum):
-    Owner = "owner"
-    Instructor = "instructor"
-    Student = "student"
+def random_join_code(n: int) -> str:
+    return "".join(random.choices(string.ascii_letters + string.digits, k=n))
 
 
 @router.get("/all")
 async def list_classrooms(
     class_role: ClassRoles,
-    user_profile: UserProfile = Depends(gcaup),
-) -> List[Classroom | None]:
-    # if class_role == ClassRoles.Owner:
-    # classrooms = Classroom.find(Classroom.owner_user.id == user.id)
-    # return await classrooms.to_list()
-    # elif class_role == ClassRoles.Instructor:
-    await user_profile.fetch_all_links()
+    user: GcauDep,
+) -> List[ClassroomShort | None]:
+    pass
     if class_role == ClassRoles.Owner:
-        return user_profile.owner_of_classrooms
-
+        return (
+            await Classroom.find(Classroom.owner_user.id == user.id, fetch_links=True)
+            .project(ClassroomShort)
+            .to_list()
+        )
     elif class_role == ClassRoles.Instructor:
-        return user_profile.instructor_of_classrooms
+        return (
+            await Classroom.find(Classroom.instructors.id == user.id, fetch_links=True)
+            .project(ClassroomShort)
+            .to_list()
+        )
     elif class_role == ClassRoles.Student:
-        return user_profile.student_of_classrooms
-
-    # user_profile.student_of_classrooms
+        return (
+            await Classroom.find(Classroom.students.id == user.id, fetch_links=True)
+            .project(ClassroomShort)
+            .to_list()
+        )
 
 
 @router.post("/new")
 async def create_new_classroom(
-    classroom_in: ClassroomIn, user_profile: UserProfile = Depends(gcaup)
-) -> dict[str, str]:
+    classroom_in: ClassroomIn, user: GcauDep
+) -> PydanticObjectId:
     classroom = Classroom(
-        **classroom_in.dict(), owner_user=user_profile.user, created_time=datetime.now()
+        **classroom_in.dict(),
+        owner_user=user,
+        created_time=datetime.now(),
+        student_join_code=random_join_code(7),
+        instructor_join_code=random_join_code(12)
     )
     await classroom.insert()
-    user_profile.owner_of_classrooms.append(classroom)
-    await user_profile.save()
-    return {"message": "success: created new classroom"}
+
+    return classroom.id
 
 
-@router.get("/{classroom_id}")
-async def get_classroom(classroom_id: PydanticObjectId, user: UserInDB = Depends(gcau)):
-    classroom = await Classroom.get(classroom_id)
-    if classroom is not None:
-        return classroom
+# @router.get("")
+# async def get_classroom(
+#     rc: RC_sp_Dep,
+# ) -> ClassroomShort:
+#     classroom = rc.classroom
+
+#     return ClassroomShort(
+#         owner_name=classroom.owner_user.username,
+#         name=classroom.name,
+#         description=classroom.description,
+#     )
+
+
+@router.get("/people")
+async def get_classroom_people(rc: RC_sp_Dep) -> ClassroomPeople:
+    classroom_people = await Classroom.find_one(
+        Classroom.id == rc.classroom.id,
+        fetch_links=True,
+    ).project(ClassroomPeople)
+    return classroom_people
+
+
+@router.post("/join")
+async def join_classroom(join_code: str, rc: RCDep) -> ClassroomShort:
+    if not rc.role == ClassRolesPlus.Norole:
+        raise cant_join_classroom_exc
+    classroom = rc.classroom
+    if classroom.student_join_code == join_code:
+        classroom.students.append(rc.user)
+
+    elif classroom.instructor_join_code == join_code:
+        classroom.instructors.append(rc.user)
     else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found"
-        )
+        raise invalid_join_code_exc
+    await classroom.save()
+    return ClassroomShort(
+        owner_name=classroom.owner_user.username,
+        name=classroom.name,
+        description=classroom.description,
+        student_count=0,
+    )
 
 
-# @router.post("/{classroom_id}/join/{join_code}")
-# async def join_classroom(user:UserInDB = Depends(get_current_active_user),classroom_id,join_code)
+# get student join code
+@router.get("/student-join-code")
+async def get_student_join_code(rc: RC_ip_Dep) -> str:
+    return rc.classroom.student_join_code
+
+
+@router.get("/instructor-join-code")
+async def get_instructor_join_code(rc: RC_o_Dep) -> str:
+    return rc.classroom.instructor_join_code
+
+
+@router.post("/student-join-code")
+async def reset_student_join_code(
+    rc: RC_o_Dep,
+) -> str:
+    rc.classroom.student_join_code = random_join_code(7)
+    await rc.classroom.save()
+    return rc.classroom.student_join_code
+
+
+@router.post("/instructor-join-code")
+async def reset_instructor_join_code(rc: RC_o_Dep) -> str:
+    rc.classroom.instructor_join_code = random_join_code(12)
+    await rc.classroom.save()
+    return rc.classroom.instructor_join_code
+
+
+# @router.post("/leave")
+# async def leave_classroom(
+#     roled_classroom: RoledClassroom = Depends(get_roled_classroom),
+# ):
+#     pass
+
+
+# get instructor join code
+
+
+# reset student join code
+# reset instructor join code
+# remove member
 
 # @router.patch("/update/{classroom_id}")
 # async def update_classroom(user: UserInDB = Depends(get_current_active_user)):
@@ -74,3 +169,4 @@ async def get_classroom(classroom_id: PydanticObjectId, user: UserInDB = Depends
 # @router.delete("/delete/{classroom_id}")
 # async def delete_classroom(user: UserInDB = Depends(get_current_active_user)):
 #     pass
+

@@ -1,11 +1,10 @@
 from fastapi import Depends, HTTPException, status
 
-from api.models.user_id import UserInDB
-from api.models.user_profile import UserProfile
+from api.models.user import UserInDB
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from api.config import CONFIG
-
+from typing import Annotated
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -40,19 +39,9 @@ async def get_current_active_user(
     return current_user
 
 
-async def get_current_active_user_profile(
-    current_user: UserInDB = Depends(get_current_active_user),
-) -> UserProfile:
-    user_profile = await UserProfile.find_one(UserProfile.user.id == current_user.id)
-
-    if user_profile:
-        return user_profile
-    else:
-        user_profile = UserProfile(user=current_user)
-        user_profile.insert()
-        return user_profile
-
-
 gcu = get_current_user
 gcau = get_current_active_user
-gcaup = get_current_active_user_profile
+
+
+GetCurrentActiveUserDep = Annotated[UserInDB, Depends(get_current_active_user)]
+GcauDep = GetCurrentActiveUserDep

@@ -8,7 +8,7 @@ packages = [{include = "api"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.94.1"
+fastapi = "^0.95.0"
 beanie = "^1.17.0"
 uvicorn = "^0.21.1"
 python-decouple = "^3.8"

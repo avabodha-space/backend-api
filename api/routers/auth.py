@@ -6,7 +6,7 @@ from jose import jwt
 
 from pydantic import BaseModel
 
-from api.models.user_id import UserInDB
+from api.models.user import UserInDB
 from api.config import CONFIG
 from api.utils.password import verify_password
 

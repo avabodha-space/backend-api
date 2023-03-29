@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.models.user_id import UserInDB, UserOut, UserUpdate
+from api.models.user import UserInDB, UserOut, UserUpdate
 
 
 from api.utils.current_user import get_current_active_user

@@ -4,6 +4,7 @@ from typing import Optional
 from beanie import Document, Indexed, Link
 
 from pydantic import BaseModel, EmailStr
+
 # from api.models.classroom import Classroom
 from typing import List
 
@@ -32,9 +33,6 @@ class UserInDB(Document, UserOut):
     # what is stored in db
     hashed_password: str
     email_confirmed_at: Optional[datetime] = None
-    # classrooms_created: List[Link[Classroom]] = []
-    # classrooms_instructed: List[Link[Classroom]] = []
-    # classrooms_attended: List[Link[Classroom]] = []
 
     def __repr__(self) -> str:
         return f"<User {self.email}>"
@@ -57,3 +55,14 @@ class UserInDB(Document, UserOut):
     @classmethod
     async def by_email(cls, email: str) -> "UserInDB":
         return await cls.find_one(cls.email == email)
+
+
+class UserInClassroomView(BaseModel):
+    username: str | None = None
+    profile_pic: str | None = None
+
+    class Settings:
+        projection = {
+            "username": 1,
+            "profile_pic": 1,
+        }
