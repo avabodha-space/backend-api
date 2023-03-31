@@ -1,5 +1,7 @@
 # avabodha-api
 
+> **Note**: The project is work in progress and we have not yet reached an MVP. The README will be updated soon with more details.
+
 The Sanskrit word "avabodha" (अवबोध) is derived from the root verb "budh" which means "to awaken" or "to know".
 
 "Avabodha" refers to the act of comprehending or understanding deeply, or a clear and complete perception of something.
